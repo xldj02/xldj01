@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雪梨短剧 · 管理后台</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+  body{background:#0b0b10;color:#f0d9e6;font-family:-apple-system,"PingFang SC",sans-serif;padding:16px;}
+  h1{color:#ff5fa2;font-size:20px;margin-bottom:6px;}
+  .sub{color:#8a7a83;font-size:12px;margin-bottom:18px;}
+  .card{background:#16161d;border:1px solid #23232e;border-radius:14px;padding:16px;margin-bottom:16px;}
+  .card h2{font-size:15px;color:#ffe3f0;margin-bottom:12px;}
+  label{display:block;font-size:12px;color:#b99fae;margin:10px 0 4px;}
+  input,select,textarea{width:100%;background:#1b1b24;border:1px solid #2c2c38;border-radius:10px;padding:10px 12px;color:#ffe3f0;font-size:13px;outline:0;}
+  textarea{min-height:60px;resize:vertical;}
+  .row{display:flex;gap:10px;}
+  .row>*{flex:1;}
+  .btn{display:block;width:100%;background:linear-gradient(135deg,#ff4d94,#ff7ab8);color:#fff;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:14px;}
+  .btn.sec{background:#1b1b24;color:#ff9ec7;border:1px solid #2c2c38;}
+  .btn.del{background:#2a0d0d;color:#ff6b6b;border:1px solid #5a1b1b;}
+  .err{color:#ff6b6b;font-size:12px;min-height:16px;margin-top:6px;}
+  .ok{color:#55efc4;font-size:12px;min-height:16px;margin-top:6px;}
+  .eprow{display:flex;gap:8px;margin-bottom:8px;}
+  .eprow input.epT{width:90px;flex:0 0 auto;}
+  .eprow .rm{flex:0 0 auto;width:40px;background:#2a0d0d;color:#ff6b6b;border:1px solid #5a1b1b;border-radius:10px;cursor:pointer;}
+  #loginBox{max-width:400px;margin:60px auto;}
+  #mainBox{max-width:560px;margin:0 auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  td,th{padding:8px 6px;border-bottom:1px solid #23232e;text-align:left;color:#d8c8d4;}
+  th{color:#b99fae;}
+  .toast{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;font-size:13px;padding:10px 20px;border-radius:16px;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none;}
+</style>
+</head>
+<body>
+
+<!-- 登录框 -->
+<div class="card" id="loginBox">
+  <h1>雪梨短剧 · 管理后台</h1>
+  <div class="sub" id="loginTip">请输入管理密码</div>
+  <label>管理密码</label>
+  <input id="loginPwd" type="password" placeholder="输入管理密码">
+  <div class="err" id="loginErr"></div>
+  <button class="btn" id="loginBtn">登录</button>
+</div>
+
+<!-- 主界面 -->
+<div id="mainBox" style="display:none;">
+  <h1>雪梨短剧 · 管理后台</h1>
+  <div class="sub" id="helloSub"></div>
+
+  <div class="card">
+    <h2>📺 上架 / 更新短剧</h2>
+    <label>剧 ID（英文，唯一，如 s3）</label>
+    <input id="fShowId" type="text" placeholder="s3">
+    <label>剧名</label>
+    <input id="fTitle" type="text" placeholder="剧名">
+    <div class="row">
+      <div>
+        <label>分类</label>
+        <select id="fTag">
+          <option>都市</option><option>人妻</option><option>师生</option>
+          <option>职场</option><option>古装</option><option>家庭</option>
+        </select>
+      </div>
+      <div>
+        <label>热度（如 1.2万）</label>
+        <input id="fHeat" type="text" placeholder="1.2万">
+      </div>
+    </div>
+    <label>封面图 URL（可留空）</label>
+    <input id="fThumb" type="text" placeholder="https://...">
+    <label>描述（显示在剧名下方）</label>
+    <textarea id="fDesc" placeholder="一句话简介…"></textarea>
+    <div class="row">
+      <div><label>热门推荐</label><select id="fHot"><option value="false">否</option><option value="true">是</option></select></div>
+      <div><label>VIP 专享</label><select id="fVip"><option value="false">否</option><option value="true">是</option></select></div>
+    </div>
+    <label>剧集（标题 + 视频直链）</label>
+    <div id="epRows"></div>
+    <button class="btn sec" id="addEp">+ 加一集</button>
+    <div class="err" id="saveErr"></div>
+    <button class="btn" id="saveBtn">保存上架</button>
+  </div>
+
+  <div class="card">
+    <h2>🗑 已上架片单（点击下架）</h2>
+    <div id="showList">加载中…</div>
+  </div>
+
+  <div class="card">
+    <h2>👥 注册用户</h2>
+    <div id="userList">加载中…</div>
+  </div>
+
+  <div class="card">
+    <h2>🔑 修改管理密码</h2>
+    <label>旧密码</label><input id="chgOld" type="password">
+    <label>新密码</label><input id="chgNew" type="password">
+    <div class="ok" id="chgOk"></div>
+    <button class="btn sec" id="chgBtn">修改密码</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var SB_URL = 'https://vadupigcwjnbqldgquzs.supabase.co';
+var SB_KEY = 'sb_publishable_yBP4oDIehDKhCKoeeuobkg_QOaaXu1D';
+
+function sbFetch(path, opts) {
+  opts = opts || {};
+  var headers = {'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json'};
+  return fetch(SB_URL + path, {method: opts.method || (opts.body ? 'POST' : 'GET'), headers: headers, body: opts.body})
+    .then(function(r){ return r.text().then(function(t){ var d=null; try{d=t?JSON.parse(t):null;}catch(e){}
+      if(!r.ok){ throw new Error((d&&d.message)||('HTTP '+r.status)); } return d; });});
+}
+function sbRpc(fn, params){ return sbFetch('/rest/v1/rpc/'+fn, {body: JSON.stringify(params||{})}); }
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function hashPwd(p){var s='xueli#admin#salt#'+p;var h1=0x811c9dc5>>>0,h2=0x9e3779b9>>>0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,16777619)>>>0;h2=Math.imul(h2+c,2654435761)>>>0;}return h1.toString(16)+h2.toString(16);}
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';clearTimeout(t._t);t._t=setTimeout(function(){t.style.opacity='0';},1500);}
+
+var adminPwd = localStorage.getItem('admin_pwd') || sessionStorage.getItem('admin_pwd') || '';
+
+/* 登录：只校验密码，不修改密码 */
+document.getElementById('loginBtn').addEventListener('click', function(){
+  var pwd = document.getElementById('loginPwd').value;
+  var err = document.getElementById('loginErr');
+  err.textContent = '';
+  if(!pwd){ err.textContent = '请输入管理密码'; return; }
+  var btn = document.getElementById('loginBtn');
+  btn.textContent = '校验中…';
+  sbRpc('fn_admin_login', {p_pwd: pwd}).then(function(r){
+    btn.textContent = '登录';
+    if(r === true){
+      adminPwd = pwd;
+      try{ localStorage.setItem('admin_pwd', pwd); }catch(e){}
+      enterMain();
+    } else {
+      err.textContent = '密码错误';
+    }
+  }).catch(function(e){ btn.textContent = '登录'; err.textContent = e.message || '登录失败'; });
+});
+
+function enterMain(){
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('mainBox').style.display = 'block';
+  document.getElementById('helloSub').textContent = '已登录 · ' + new Date().toLocaleString();
+  addEpRow(); addEpRow();
+  loadShows(); loadUsers();
+}
+
+/* 集数行 */
+function addEpRow(t, u){
+  var box = document.getElementById('epRows');
+  var div = document.createElement('div');
+  div.className = 'eprow';
+  div.innerHTML = '<input class="epT" type="text" placeholder="第N集" value="'+(t||'')+'">'+
+                  '<input type="text" placeholder="视频直链 https://..." value="'+(u||'')+'">'+
+                  '<button class="rm">×</button>';
+  div.querySelector('.rm').addEventListener('click', function(){ div.remove(); });
+  box.appendChild(div);
+}
+document.getElementById('addEp').addEventListener('click', function(){ addEpRow(); });
+
+/* 保存上架 */
+document.getElementById('saveBtn').addEventListener('click', function(){
+  var err = document.getElementById('saveErr');
+  err.textContent = '';
+  var sid = document.getElementById('fShowId').value.trim();
+  var title = document.getElementById('fTitle').value.trim();
+  if(!/^[a-zA-Z0-9_-]{1,20}$/.test(sid)){ err.textContent = '剧 ID 需英文/数字'; return; }
+  if(!title){ err.textContent = '剧名必填'; return; }
+  var eps = [];
+  document.querySelectorAll('#epRows .eprow').forEach(function(row){
+    var t = row.querySelector('.epT').value.trim();
+    var u = row.querySelector('input[type="text"]:not(.epT)').value.trim();
+    if(t && u) eps.push({title:t, url:u});
+  });
+  if(!eps.length){ err.textContent = '至少添加一集（标题+链接）'; return; }
+  var payload = {
+    show_id: sid, title: title,
+    tag: document.getElementById('fTag').value,
+    thumb: document.getElementById('fThumb').value.trim(),
+    heat: document.getElementById('fHeat').value.trim(),
+    desc: document.getElementById('fDesc').value.trim(),
+    hot: document.getElementById('fHot').value === 'true',
+    vip: document.getElementById('fVip').value === 'true',
+    episodes: eps
+  };
+  if(!adminPwd){ err.textContent = '请先在上方输入管理密码登录'; return; }
+  var btn = document.getElementById('saveBtn');
+  btn.textContent = '保存中…';
+  sbRpc('fn_admin_save_show', {p_pwd: adminPwd, p_show: payload}).then(function(rows){
+    var r = rows && rows[0];
+    btn.textContent = '保存上架';
+    if(!r || !r.ok){
+      var m = r ? r.msg : '保存失败';
+      if(/密码/.test(m)){
+        err.textContent = m + '（请重新输入管理密码）';
+        var np2 = prompt('管理密码校验失败，请重新输入你的管理密码：');
+        if(np2 && np2.length >= 6){
+          adminPwd = np2;
+          try{ localStorage.setItem('admin_pwd', np2); sessionStorage.setItem('admin_pwd', np2); }catch(e){}
+          document.getElementById('saveBtn').click();
+        }
+        return;
+      }
+      err.textContent = m; return;
+    }
+    showToast('✅ 上架成功：' + title);
+    err.textContent = '';
+    loadShows();
+  }).catch(function(e){ btn.textContent = '保存上架'; err.textContent = e.message || '保存失败'; });
+});
+
+/* 片单列表 */
+function loadShows(){
+  var el = document.getElementById('showList');
+  sbFetch('/rest/v1/site_shows?select=show_id,title,tag&enabled=eq.true&order=created_at.desc').then(function(rows){
+    if(!rows || !rows.length){ el.innerHTML = '<div style="color:#5a5a6a;font-size:12px;">暂无上架剧集</div>'; return; }
+    var h = '<table><tr><th>ID</th><th>剧名</th><th>分类</th><th></th></tr>';
+    rows.forEach(function(r){
+      h += '<tr><td>'+esc(r.show_id)+'</td><td>'+esc(r.title)+'</td><td>'+esc(r.tag)+'</td>'+
+           '<td style="white-space:nowrap;">'+
+           '<button class="btn sec" data-add="'+esc(r.show_id)+'" style="padding:5px 10px;font-size:11px;margin:0 4px 0 0;">+集</button>'+
+           '<button class="btn sec" data-edit="'+esc(r.show_id)+'" style="padding:5px 10px;font-size:11px;margin:0 4px 0 0;">编辑</button>'+
+           '<button class="btn del" data-did="'+esc(r.show_id)+'" style="padding:5px 10px;font-size:11px;margin:0;">下架</button>'+
+           '</td></tr>';
+    });
+    h += '</table>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-add]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var sid = b.dataset.add;
+        var t = prompt('新集的标题（如 第3集）：');
+        if(!t) return;
+        var u = prompt('新集的视频直链（mp4 或 m3u8）：');
+        if(!u) return;
+        b.textContent = '…';
+        sbRpc('fn_admin_add_ep', {p_pwd: adminPwd, p_show_id: sid, p_title: t, p_url: u}).then(function(rows){
+          var r = rows && rows[0];
+          b.textContent = '+集';
+          showToast(r && r.ok ? '✅ 已追加：'+t : (r ? r.msg : '失败'));
+          loadShows();
+        }).catch(function(){ b.textContent = '+集'; showToast('追加失败'); });
+      });
+    });
+    el.querySelectorAll('[data-edit]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var sid = b.dataset.edit;
+        sbRpc('fn_admin_get_show', {p_pwd: adminPwd, p_show_id: sid}).then(function(rows){
+          var s = rows && rows[0];
+          if(!s){ showToast('读取失败'); return; }
+          document.getElementById('fShowId').value = sid;
+          document.getElementById('fTitle').value = s.title || '';
+          document.getElementById('fTag').value = s.tag || '都市';
+          document.getElementById('fHeat').value = s.heat || '';
+          document.getElementById('fThumb').value = s.thumb || '';
+          document.getElementById('fDesc').value = s.desc_text || '';
+          document.getElementById('fHot').value = String(!!s.hot);
+          document.getElementById('fVip').value = String(!!s.vip);
+          var box = document.getElementById('epRows');
+          box.innerHTML = '';
+          var eps = s.episodes || [];
+          if(!eps.length){ addEpRow(); addEpRow(); }
+          else eps.forEach(function(e){ addEpRow(e.title, e.url); });
+          window.scrollTo({top:0, behavior:'smooth'});
+          showToast('已载入，可改内容或点 +加一集 追加');
+        });
+      });
+    });
+    el.querySelectorAll('.del').forEach(function(b){
+      b.addEventListener('click', function(){
+        if(!confirm('确认下架 ' + b.dataset.did + ' ？')) return;
+        sbRpc('fn_admin_del_show', {p_pwd: adminPwd, p_show_id: b.dataset.did}).then(function(rows){
+          showToast(rows && rows[0] && rows[0].ok ? '已下架' : (rows&&rows[0]?rows[0].msg:'失败'));
+          loadShows();
+        });
+      });
+    });
+  }).catch(function(){ el.innerHTML = '<div style="color:#ff6b6b;font-size:12px;">加载失败</div>'; });
+}
+
+/* 用户列表 */
+function loadUsers(){
+  var el = document.getElementById('userList');
+  sbFetch('/rest/v1/app_users?select=username,uid,coins,vip,created_at&order=created_at.desc&limit=100').then(function(rows){
+    if(!rows || !rows.length){ el.innerHTML = '<div style="color:#5a5a6a;font-size:12px;">暂无注册用户</div>'; return; }
+    var h = '<table><tr><th>用户</th><th>ID</th><th>金币</th><th>VIP</th></tr>';
+    rows.forEach(function(r){
+      h += '<tr><td>'+esc(r.username)+'</td><td>'+esc(r.uid||'')+'</td><td>'+(r.coins||0)+'</td><td>'+(r.vip?'是':'否')+'</td></tr>';
+    });
+    h += '</table>';
+    el.innerHTML = h;
+  }).catch(function(){ el.innerHTML = '<div style="color:#ff6b6b;font-size:12px;">加载失败</div>'; });
+}
+
+/* 改密码 */
+document.getElementById('chgBtn').addEventListener('click', function(){
+  var o = document.getElementById('chgOld').value, n = document.getElementById('chgNew').value;
+  if(n.length < 6){ showToast('新密码至少 6 位'); return; }
+  sbRpc('fn_admin_setpwd', {p_old: o, p_new: n}).then(function(rows){
+    var r = rows && rows[0];
+    if(r && r.ok){ document.getElementById('chgOk').textContent = '✅ 密码已修改'; adminPwd = n; sessionStorage.setItem('admin_pwd', n); }
+    else showToast(r ? r.msg : '修改失败');
+  });
+});
+
+/* 登录状态提示：不自动探测（避免误改密码） */
+document.getElementById('oldPwdRow').style.display = 'block';
+
+</script>
+</body>
+</html>
